@@ -1,140 +1,145 @@
-# SmartEDA - Análise Exploratória de Dados Inteligente
+# SmartEDA
 
-Biblioteca Python para análise exploratória de dados (EDA) automatizada, inspirada no pacote SmartEDA do R.
+[![Python](https://img.shields.io/badge/Python-3.8+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue)](#)
+[![License](https://img.shields.io/badge/license-MIT-green)](#licença)
+
+Biblioteca Python para automatizar análise exploratória de dados, inferir tipos de variáveis e gerar relatórios reproduzíveis. Inspirada no SmartEDA do ecossistema R.
+
+## Objetivo
+
+A análise exploratória costuma repetir verificações de qualidade, distribuição, associação e relação com a variável-alvo. O SmartEDA organiza esse processo em uma API única e configurável, mantendo acesso aos resultados intermediários.
 
 ## Funcionalidades
 
-- **Inferência automática de tipos**: Detecta automaticamente variáveis numéricas, categóricas, temporais e binárias
-- **Análise estatística completa**: Estatísticas descritivas, detecção de outliers, valores ausentes
-- **Análise de correlação**: Correlação de Pearson, Cramér's V e Eta-squared para variáveis mistas
-- **Análise com variável target**: Suporte para classificação e regressão
-- **Importância de variáveis**: Ranking de features usando Random Forest
-- **Geração de relatórios**: Relatórios em Markdown com gráficos
+- inferência de variáveis numéricas, categóricas, temporais e binárias;
+- estatísticas descritivas e diagnóstico de valores ausentes;
+- detecção de outliers;
+- correlação de Pearson, Cramér's V e Eta-squared;
+- análise supervisionada para classificação e regressão;
+- importância de variáveis com Random Forest;
+- relatórios em Markdown com gráficos;
+- configuração de limiares e volume de visualizações.
 
 ## Instalação
 
 ```bash
-# Clonar o repositório
 git clone https://github.com/viniciusds2020/sistema_eda.git
 cd sistema_eda
 
-# Criar ambiente virtual
 python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-.venv\Scripts\activate     # Windows
+source .venv/bin/activate  # Linux/macOS
+# .venv\Scripts\activate # Windows
 
-# Instalar dependências
 pip install pandas numpy scipy scikit-learn matplotlib seaborn
 ```
 
-## Uso Rápido
+## Uso rápido
 
 ```python
 import pandas as pd
-from smarteda import SmartEDA, Config
-
-# Carregar dados
-df = pd.read_csv("seus_dados.csv")
-
-# Análise simples
-eda = SmartEDA(df, dataset_name="Meu Dataset")
-eda.analyze()
-eda.generate_report("relatorio.md")
-
-# Análise com variável target (classificação)
-eda = SmartEDA(df, target="coluna_target")
-eda.analyze()
-eda.generate_report("relatorio_classificacao.md")
-```
-
-## Exemplos
-
-### Análise Básica
-
-```python
 from smarteda import SmartEDA
 
-eda = SmartEDA(df, dataset_name="Clientes")
-eda.analyze()
+df = pd.read_csv("dados.csv")
 
-# Visualizar resumos
-print(eda.get_numeric_summary())
-print(eda.get_categorical_summary())
-print(eda.get_correlation_summary())
+eda = SmartEDA(
+    df,
+    dataset_name="Clientes",
+)
+
+eda.analyze()
+eda.generate_report("relatorio_eda.md")
 ```
 
-### Análise com Target e Configuração Personalizada
+## Análise com variável-alvo
 
 ```python
-from smarteda import SmartEDA, Config
+from smarteda import Config, SmartEDA
 
 config = Config(
-    categorical_threshold=15,      # Máximo de categorias únicas
-    top_n_categories=8,            # Top N categorias nos gráficos
-    include_plots=True,            # Gerar gráficos
-    correlation_threshold=0.3      # Limiar para correlações significativas
+    categorical_threshold=15,
+    top_n_categories=8,
+    include_plots=True,
+    correlation_threshold=0.30,
 )
 
 eda = SmartEDA(
     df,
     target="inadimplente",
     config=config,
-    dataset_name="Análise de Risco"
+    dataset_name="Risco de crédito",
 )
+
 eda.analyze()
 
-# Ranking de importância de variáveis
+print(eda.get_target_summary())
 print(eda.get_importance_summary())
+eda.generate_report("relatorio_risco.md")
 ```
 
-## Estrutura do Projeto
+## Fluxo da análise
 
-```
-sistema_eda/
-├── smarteda/
-│   ├── __init__.py
-│   ├── core/
-│   │   ├── analyzer.py      # Classe principal SmartEDA
-│   │   ├── config.py        # Configurações
-│   │   └── type_inference.py # Inferência de tipos
-│   ├── analysis/
-│   │   ├── numeric.py       # Análise numérica
-│   │   ├── categorical.py   # Análise categórica
-│   │   ├── temporal.py      # Análise temporal
-│   │   ├── correlation.py   # Análise de correlação
-│   │   ├── target.py        # Análise com target
-│   │   └── importance.py    # Importância de variáveis
-│   ├── report/
-│   │   ├── generator.py     # Gerador de relatórios
-│   │   └── styles.py        # Estilos do relatório
-│   └── utils/
-│       └── helpers.py       # Funções auxiliares
-├── main.py                  # Exemplos de uso
-└── README.md
+```mermaid
+flowchart LR
+    D["DataFrame"] --> T["Inferência de tipos"]
+    T --> Q["Qualidade e estatísticas"]
+    Q --> C["Associações"]
+    C --> A["Análise do target"]
+    A --> R["Relatório"]
 ```
 
-## Dependências
+As etapas de target e importância são executadas quando uma variável-alvo é informada.
 
-- Python 3.8+
-- pandas
-- numpy
-- scipy
-- scikit-learn
-- matplotlib
-- seaborn
+## API principal
 
-## Métodos Principais
+| Método | Resultado |
+|---|---|
+| `analyze()` | executa o pipeline completo |
+| `generate_report(path)` | cria o relatório em Markdown |
+| `get_numeric_summary()` | resumo de variáveis numéricas |
+| `get_categorical_summary()` | resumo de variáveis categóricas |
+| `get_correlation_summary()` | associações relevantes |
+| `get_target_summary()` | relação com a variável-alvo |
+| `get_importance_summary()` | ranking de importância |
 
-| Método | Descrição |
-|--------|-----------|
-| `analyze()` | Executa análise exploratória completa |
-| `generate_report(path)` | Gera relatório em Markdown |
-| `get_numeric_summary()` | Retorna resumo das variáveis numéricas |
-| `get_categorical_summary()` | Retorna resumo das variáveis categóricas |
-| `get_correlation_summary()` | Retorna correlações significativas |
-| `get_target_summary()` | Retorna análise com target |
-| `get_importance_summary()` | Retorna ranking de importância |
+## Estrutura
+
+```text
+smarteda/
+├── core/              # orquestração, configuração e tipos
+├── analysis/          # análises estatísticas
+├── report/            # geração e estilos
+└── utils/             # funções auxiliares
+main.py                # exemplos de uso
+```
+
+## Princípios do projeto
+
+- oferecer uma primeira leitura consistente do dataset;
+- distinguir correlação de diferentes combinações de tipos;
+- manter parâmetros explícitos e reproduzíveis;
+- produzir artefatos que possam ser revisados e versionados.
+
+## Limitações
+
+- EDA automatizada não substitui conhecimento do domínio;
+- importância de Random Forest não representa causalidade;
+- inferência de tipos pode exigir ajustes em dados ambíguos;
+- grandes volumes podem demandar amostragem;
+- decisões sobre outliers e missing values permanecem com o analista.
+
+## Roadmap
+
+- [ ] empacotamento e publicação no PyPI;
+- [ ] testes automatizados e CI;
+- [ ] relatório HTML;
+- [ ] suporte a amostragem e datasets maiores;
+- [ ] documentação da API.
 
 ## Licença
 
-MIT License
+MIT.
+
+## Autor
+
+Desenvolvido por [Vinicius de Sousa](https://github.com/viniciusds2020).
