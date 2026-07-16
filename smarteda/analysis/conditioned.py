@@ -24,8 +24,8 @@ def _target_segments(
         or combined_unique <= classification_threshold
     ):
         return (
-            train_target.fillna("__MISSING__").astype(str),
-            test_target.fillna("__MISSING__").astype(str),
+            train_target.astype("string").fillna("__MISSING__"),
+            test_target.astype("string").fillna("__MISSING__"),
             "classes",
         )
 
@@ -34,8 +34,8 @@ def _target_segments(
     quantiles = min(target_bins, unique)
     if quantiles < 2:
         return (
-            train_target.fillna("__MISSING__").astype(str),
-            test_target.fillna("__MISSING__").astype(str),
+            train_target.astype("string").fillna("__MISSING__"),
+            test_target.astype("string").fillna("__MISSING__"),
             "classes",
         )
 
@@ -44,8 +44,8 @@ def _target_segments(
     )
     if len(edges) < 3:
         return (
-            train_target.fillna("__MISSING__").astype(str),
-            test_target.fillna("__MISSING__").astype(str),
+            train_target.astype("string").fillna("__MISSING__"),
+            test_target.astype("string").fillna("__MISSING__"),
             "classes",
         )
     edges[0], edges[-1] = -np.inf, np.inf
