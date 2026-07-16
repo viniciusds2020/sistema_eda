@@ -35,6 +35,13 @@ class Config:
     # Target
     classification_threshold: int = 10  # Se target tem <= N valores únicos, é classificação
 
-    # Geral
-    sample_size: Optional[int] = None  # None = usar todos os dados
+    # Drift e testes estatísticos
+    drift_bins: int = 10
+    target_bins: int = 5
+    min_segment_size: int = 30
+    statistical_alpha: float = 0.05
+    pvalue_correction: str = "fdr_bh"
+
+    # Geral / materialização limitada
+    sample_size: Optional[int] = None  # Limite aplicado antes de coletar Polars/DuckDB
     random_state: int = 42
