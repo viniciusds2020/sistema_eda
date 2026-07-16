@@ -36,8 +36,8 @@ def _psi(train: pd.Series, test: pd.Series, bins: int = 10) -> float:
 
 
 def _js_divergence(train: pd.Series, test: pd.Series) -> tuple[float, float]:
-    train_values = train.fillna("__MISSING__").astype(str)
-    test_values = test.fillna("__MISSING__").astype(str)
+    train_values = train.astype("string").fillna("__MISSING__")
+    test_values = test.astype("string").fillna("__MISSING__")
     categories = train_values.value_counts().index.union(test_values.value_counts().index)
 
     p = train_values.value_counts(normalize=True).reindex(categories, fill_value=0).to_numpy()
