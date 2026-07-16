@@ -49,8 +49,8 @@ def _categorical_test(
     train: pd.Series,
     test: pd.Series,
 ) -> tuple[float, float, int, int]:
-    left = train.fillna("__MISSING__").astype(str)
-    right = test.fillna("__MISSING__").astype(str)
+    left = train.astype("string").fillna("__MISSING__")
+    right = test.astype("string").fillna("__MISSING__")
     categories = left.value_counts().index.union(right.value_counts().index)
     table = np.vstack(
         [
