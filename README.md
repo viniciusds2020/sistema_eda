@@ -1,25 +1,25 @@
 # SmartEDA
 
 [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/version-1.2.0-blue)](#)
-[![DataFrames](https://img.shields.io/badge/DataFrames-pandas_%7C_Polars_%7C_DuckDB-0A7)](#fontes-de-dados)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue)](#)
+[![DataFrames](https://img.shields.io/badge/DataFrames-pandas_%7C_Polars_%7C_DuckDB-0A7)](#escala-e-materialização)
 [![License](https://img.shields.io/badge/license-MIT-green)](#licença)
 
-Biblioteca Python para análise exploratória e data profiling. O SmartEDA combina estatística descritiva, associações entre tipos mistos, diagnóstico de qualidade, alertas de leakage, comparação treino–teste e relatórios HTML interativos.
+Biblioteca Python para análise exploratória, data profiling e monitoramento de drift. Combina estatística descritiva, diagnóstico de qualidade, testes com correção para múltiplas comparações, drift condicionado ao target e acompanhamento longitudinal.
 
-## Principais capacidades
+## Capacidades
 
-- inferência de variáveis numéricas, categóricas, temporais, binárias e identificadores;
-- estatísticas descritivas, percentis, assimetria, outliers e missing values;
-- Pearson, Cramér's V e Eta-squared para associações entre tipos diferentes;
-- análise de target para classificação e regressão;
-- ranking de importância com sinais estatísticos e Random Forest;
-- detector de constantes, possíveis IDs e sinais de target leakage;
-- PSI para variáveis numéricas e Jensen-Shannon para categóricas;
-- taxa de categorias inéditas e mudança de missing entre treino e teste;
-- entrada pandas, Polars ou relação DuckDB;
-- relatório Markdown e HTML autocontido com Plotly;
-- testes, lint e CI em múltiplas versões do Python.
+- análise numérica, categórica, temporal e supervisionada;
+- Pearson, Cramér's V e Eta-squared;
+- constantes, possíveis IDs e alertas de target leakage;
+- PSI, Jensen-Shannon, missing drift e categorias inéditas;
+- Kolmogorov–Smirnov e qui-quadrado;
+- correções Benjamini–Hochberg FDR e Bonferroni;
+- drift por classe ou faixa do target;
+- várias janelas comparadas contra uma referência;
+- pandas, Polars LazyFrame e DuckDB Relation;
+- materialização limitada antes da conversão;
+- relatórios Markdown e HTML interativos.
 
 ## Instalação
 
@@ -27,172 +27,153 @@ Biblioteca Python para análise exploratória e data profiling. O SmartEDA combi
 git clone https://github.com/viniciusds2020/sistema_eda.git
 cd sistema_eda
 python -m venv .venv
-
-# Linux/macOS
-source .venv/bin/activate
-# Windows
-# .venv\Scripts\activate
-
-pip install -e .
-```
-
-Para habilitar Polars e DuckDB:
-
-```bash
+source .venv/bin/activate  # Linux/macOS
+# .venv\Scripts\activate # Windows
 pip install -e ".[all]"
 ```
 
-Ambiente de desenvolvimento:
-
-```bash
-pip install -e ".[dev,all]"
-ruff check .
-pytest --cov=smarteda --cov-report=term-missing
-```
-
-## Uso completo
+## Fluxo completo
 
 ```python
-import pandas as pd
 from smarteda import Config, SmartEDA
 
-train = pd.read_parquet("train.parquet")
-test = pd.read_parquet("test.parquet")
-
 eda = SmartEDA(
-    train,
+    train_df,
     target="inadimplente",
-    config=Config(
-        include_plots=False,
-        sample_size=100_000,
-        random_state=42,
-    ),
     dataset_name="Risco de crédito",
+    config=Config(
+        sample_size=200_000,
+        statistical_alpha=0.05,
+        pvalue_correction="fdr_bh",
+        min_segment_size=100,
+        include_plots=False,
+    ),
 )
 
 results = eda.analyze()
-drift = eda.profile_train_test(test)
+overall = eda.profile_train_test(test_df)
+tests = eda.run_distribution_tests(test_df)
+conditioned = eda.profile_target_conditioned(test_df)
 
-eda.generate_report("reports/eda.md")
-eda.generate_html_report("reports/eda.html")
+history = eda.monitor_windows(
+    {
+        "2026-01": janeiro_df,
+        "2026-02": fevereiro_df,
+        "2026-03": marco_df,
+    }
+)
 
-print(results["quality_diagnostics"]["summary"])
-print(drift.sort_values("drift_score", ascending=False).head(10))
+eda.generate_html_report("reports/monitoring.html")
 ```
 
-## Fontes de dados
-
-### pandas
+## Testes estatísticos e múltiplas comparações
 
 ```python
-eda = SmartEDA(pandas_df)
+tests = eda.run_distribution_tests(
+    test_df,
+    correction="fdr_bh",  # ou bonferroni
+    alpha=0.05,
+)
 ```
 
-### Polars
-
-```python
-import polars as pl
-
-eda = SmartEDA(pl.read_parquet("dados.parquet"))
-eda_lazy = SmartEDA(pl.scan_parquet("dados.parquet"))
-```
-
-O `LazyFrame` é materializado no momento da conversão porque as análises estatísticas utilizam pandas internamente.
-
-### DuckDB
-
-```python
-import duckdb
-
-relation = duckdb.sql("SELECT * FROM read_parquet('dados/*.parquet')")
-eda = SmartEDA(relation)
-```
-
-A compatibilidade é feita por uma camada de adaptação. Isso mantém uma única implementação estatística e uma API consistente.
-
-## Diagnóstico de qualidade e leakage
-
-O resultado de `analyze()` inclui:
-
-```python
-diagnostics = results["quality_diagnostics"]
-
-diagnostics["constant_columns"]
-diagnostics["possible_ids"]
-diagnostics["possible_leakage"]
-diagnostics["missing_by_column"]
-```
-
-Os alertas de leakage verificam:
-
-- nomes associados a target, resultado ou prediction;
-- cópias exatas da variável-alvo;
-- correlação numérica quase perfeita com o target.
-
-Essas regras são heurísticas. Um alerta indica necessidade de investigação, não prova de vazamento.
-
-## Profiling treino × teste
-
-```python
-profile = eda.profile_train_test(test_df)
-```
-
-| Tipo | Indicador | Faixas de triagem |
+| Tipo de feature | Teste | Tamanho de efeito |
 |---|---|---|
-| Numérico | PSI | médio ≥ 0,10; alto ≥ 0,25 |
-| Categórico | Jensen-Shannon | médio ≥ 0,10; alto ≥ 0,20 |
-| Categórico | Categorias inéditas | taxa observada no teste |
-| Todos | Missing delta | teste − treino |
-| Schema | Colunas e dtypes | novas, ausentes ou alteradas |
+| Numérica | KS de duas amostras | estatística KS |
+| Categórica | qui-quadrado de homogeneidade | Cramér's V |
 
-Os limites são referências operacionais e devem ser calibrados conforme sensibilidade do modelo e impacto de negócio.
+O p-valor ajustado controla o volume de falsos positivos produzido ao testar muitas colunas. Significância deve ser interpretada junto com tamanho de efeito, drift operacional e impacto no modelo.
 
-## Relatório HTML interativo
+## Drift condicionado ao target
 
 ```python
-eda.generate_html_report("reports/eda.html")
+conditioned = eda.profile_target_conditioned(
+    test_df,
+    target_bins=5,
+    min_samples=100,
+)
 ```
 
-O arquivo HTML contém:
+- targets discretos são segmentados por classe;
+- targets contínuos usam quantis calculados no treino;
+- segmentos pequenos são marcados como insuficientes;
+- PSI e Jensen-Shannon são recalculados dentro de cada segmento.
 
-- cartões de qualidade;
-- alertas de IDs, constantes e leakage;
-- missing values;
-- histogramas;
-- correlações;
-- distribuições categóricas;
-- ranking de drift quando um teste foi comparado.
+Isso permite distinguir mudança global de mudança concentrada em uma classe, faixa de risco ou faixa de valor.
 
-O Plotly é incorporado ao arquivo para que o relatório possa ser aberto e compartilhado como artefato único.
+## Escala e materialização
 
-## API principal
+```python
+config = Config(sample_size=200_000)
+eda = SmartEDA(polars_lazyframe, config=config)
+```
 
-| API | Resultado |
+O `sample_size` funciona como limite de materialização:
+
+| Fonte | Estratégia |
 |---|---|
-| `SmartEDA(...).analyze()` | perfil estatístico e diagnósticos |
-| `profile_train_test(test_df)` | DataFrame de comparação |
-| `generate_report(path)` | relatório Markdown |
-| `generate_html_report(path)` | relatório HTML interativo |
-| `detect_quality_issues(df, target=...)` | diagnósticos isolados |
-| `profile_train_test(train, test)` | comparação sem instanciar SmartEDA |
-| `to_pandas(frame)` | adaptação de pandas, Polars ou DuckDB |
+| pandas | amostragem aleatória reprodutível |
+| Polars DataFrame | `sample()` antes da conversão |
+| Polars LazyFrame | `limit()` antes de `collect()` |
+| DuckDB Relation | `limit()` antes de `.df()` |
+
+Para fontes lazy, o limite é enviado ao motor antes da coleta. A análise continua usando pandas internamente, mas a fonte completa não precisa ser carregada em memória.
+
+## Monitoramento longitudinal
+
+```python
+history = eda.monitor_windows(
+    {
+        "baseline+1": window_1,
+        "baseline+2": window_2,
+        "baseline+3": window_3,
+    }
+)
+```
+
+Cada janela é comparada contra a mesma referência. O resultado contém:
+
+- resumo por janela;
+- histórico por feature;
+- nível de drift;
+- mudanças de missing e schema;
+- série temporal exibida no relatório HTML.
+
+Use definições de janela estáveis — por dia, semana, mês ou lote — para evitar que mudanças de granularidade sejam confundidas com drift.
+
+## Resultados estruturados
+
+```python
+results["quality_diagnostics"]
+results["train_test_profile"]
+results["statistical_drift_tests"]
+results["target_conditioned_drift"]
+results["longitudinal_monitoring"]
+```
+
+## Relatório HTML
+
+O relatório reúne cartões de qualidade, testes corrigidos, segmentos do target, tabelas de janelas e gráficos interativos de drift geral, condicional e longitudinal.
+
+```python
+eda.generate_html_report("reports/monitoring.html")
+```
 
 ## Considerações estatísticas
 
-- Correlação e importância não demonstram causalidade.
-- PSI e Jensen-Shannon são indicadores de mudança, não explicam a causa.
-- Leakage precisa ser validado contra o momento em que cada feature fica disponível.
-- Dados de treino e teste devem preservar a ordem temporal quando o problema exigir.
-- Amostragem reduz custo, mas pode ocultar categorias raras.
-- Variáveis com drift elevado não precisam ser removidas automaticamente; avalie impacto no modelo.
+- p-valor pequeno não implica efeito relevante;
+- testes ficam muito sensíveis em amostras grandes;
+- correção FDR é menos conservadora que Bonferroni;
+- condicionamento no target é diagnóstico e não substitui métricas do modelo;
+- PSI e Jensen-Shannon são indicadores operacionais, não testes causais;
+- limites e tamanhos mínimos devem ser calibrados por domínio.
 
-## Limitações e roadmap
+## Desenvolvimento
 
-- [ ] testes estatísticos com correção para múltiplas comparações;
-- [ ] relatório de drift condicionado ao target;
-- [ ] suporte a datasets maiores sem materialização completa;
-- [ ] monitoramento longitudinal com múltiplas janelas;
-- [ ] publicação no PyPI e documentação da API.
+```bash
+pip install -e ".[dev,all]"
+ruff check smarteda tests
+pytest --cov=smarteda --cov-report=term-missing
+```
 
 ## Licença
 
