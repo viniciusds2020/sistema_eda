@@ -1,37 +1,48 @@
 # SmartEDA
 
-[![Python](https://img.shields.io/badge/Python-3.8+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue)](#)
+[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Package](https://img.shields.io/badge/package-pyproject.toml-3776AB)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](#licença)
 
-Biblioteca Python para automatizar análise exploratória de dados, inferir tipos de variáveis e gerar relatórios reproduzíveis. Inspirada no SmartEDA do ecossistema R.
+Biblioteca Python para análise exploratória automatizada de DataFrames pandas. O SmartEDA combina inferência de tipos, estatística descritiva, qualidade de dados, associações entre variáveis, análise de target e relatórios reproduzíveis.
 
-## Objetivo
+> Projeto de portfólio que une fundamentos estatísticos e práticas de engenharia Python para acelerar a primeira leitura de um dataset.
 
-A análise exploratória costuma repetir verificações de qualidade, distribuição, associação e relação com a variável-alvo. O SmartEDA organiza esse processo em uma API única e configurável, mantendo acesso aos resultados intermediários.
+## Capacidades
 
-## Funcionalidades
-
-- inferência de variáveis numéricas, categóricas, temporais e binárias;
-- estatísticas descritivas e diagnóstico de valores ausentes;
-- detecção de outliers;
-- correlação de Pearson, Cramér's V e Eta-squared;
-- análise supervisionada para classificação e regressão;
-- importância de variáveis com Random Forest;
-- relatórios em Markdown com gráficos;
-- configuração de limiares e volume de visualizações.
+- inferência de variáveis numéricas, categóricas, temporais, binárias e identificadores;
+- estatísticas descritivas, percentis, assimetria, outliers e valores ausentes;
+- análise categórica com cardinalidade, entropia e categorias raras;
+- correlações de Pearson, Cramér's V e Eta-squared para tipos mistos;
+- análise de target para classificação e regressão;
+- ranking de importância com sinais estatísticos e Random Forest;
+- relatórios Markdown com gráficos;
+- amostragem reprodutível para bases maiores;
+- instalação via `pyproject.toml`, testes e CI.
 
 ## Instalação
+
+### Uso como biblioteca
 
 ```bash
 git clone https://github.com/viniciusds2020/sistema_eda.git
 cd sistema_eda
-
 python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-# .venv\Scripts\activate # Windows
 
-pip install pandas numpy scipy scikit-learn matplotlib seaborn
+# Linux/macOS
+source .venv/bin/activate
+# Windows
+# .venv\Scripts\activate
+
+pip install -e .
+```
+
+### Ambiente de desenvolvimento
+
+```bash
+pip install -e ".[dev]"
+ruff check .
+pytest --cov=smarteda --cov-report=term-missing
 ```
 
 ## Uso rápido
@@ -40,27 +51,29 @@ pip install pandas numpy scipy scikit-learn matplotlib seaborn
 import pandas as pd
 from smarteda import SmartEDA
 
-df = pd.read_csv("dados.csv")
+df = pd.read_csv("clientes.csv")
 
-eda = SmartEDA(
-    df,
-    dataset_name="Clientes",
-)
+eda = SmartEDA(df, dataset_name="Clientes")
+results = eda.analyze()
+eda.generate_report("reports/clientes.md")
 
-eda.analyze()
-eda.generate_report("relatorio_eda.md")
+print(eda.get_numeric_summary())
+print(eda.get_categorical_summary())
 ```
 
-## Análise com variável-alvo
+## Análise supervisionada
+
+Ao informar uma variável-alvo, o SmartEDA analisa relações com as features e cria um ranking de importância.
 
 ```python
 from smarteda import Config, SmartEDA
 
 config = Config(
     categorical_threshold=15,
-    top_n_categories=8,
-    include_plots=True,
     correlation_threshold=0.30,
+    include_plots=True,
+    sample_size=100_000,
+    random_state=42,
 )
 
 eda = SmartEDA(
@@ -71,70 +84,65 @@ eda = SmartEDA(
 )
 
 eda.analyze()
-
 print(eda.get_target_summary())
 print(eda.get_importance_summary())
-eda.generate_report("relatorio_risco.md")
+eda.generate_report("reports/risco_credito.md")
 ```
 
-## Fluxo da análise
+## Fluxo analítico
 
 ```mermaid
 flowchart LR
     D["DataFrame"] --> T["Inferência de tipos"]
-    T --> Q["Qualidade e estatísticas"]
-    Q --> C["Associações"]
-    C --> A["Análise do target"]
-    A --> R["Relatório"]
+    T --> Q["Qualidade e estatística"]
+    Q --> A["Associações"]
+    A --> S["Target e importância"]
+    S --> R["Relatório"]
 ```
-
-As etapas de target e importância são executadas quando uma variável-alvo é informada.
 
 ## API principal
 
 | Método | Resultado |
 |---|---|
-| `analyze()` | executa o pipeline completo |
-| `generate_report(path)` | cria o relatório em Markdown |
-| `get_numeric_summary()` | resumo de variáveis numéricas |
-| `get_categorical_summary()` | resumo de variáveis categóricas |
-| `get_correlation_summary()` | associações relevantes |
-| `get_target_summary()` | relação com a variável-alvo |
-| `get_importance_summary()` | ranking de importância |
+| `analyze()` | Executa a análise e retorna os resultados estruturados |
+| `generate_report(path)` | Gera relatório Markdown e artefatos visuais |
+| `get_numeric_summary()` | Retorna resumo de variáveis numéricas |
+| `get_categorical_summary()` | Retorna resumo de variáveis categóricas |
+| `get_correlation_summary()` | Retorna associações relevantes |
+| `get_target_summary()` | Retorna análise da variável-alvo |
+| `get_importance_summary()` | Retorna ranking de importância |
 
 ## Estrutura
 
 ```text
 smarteda/
-├── core/              # orquestração, configuração e tipos
-├── analysis/          # análises estatísticas
-├── report/            # geração e estilos
+├── core/              # orquestração, configuração e inferência
+├── analysis/          # análises numérica, categórica, temporal e de target
+├── report/            # geração e estilos do relatório
 └── utils/             # funções auxiliares
-main.py                # exemplos de uso
+tests/                 # testes de API e pipeline básico
+.github/workflows/     # validação automática
+pyproject.toml         # pacote e ferramentas de desenvolvimento
+main.py                # demonstração com dados sintéticos
 ```
 
-## Princípios do projeto
+## Considerações estatísticas
 
-- oferecer uma primeira leitura consistente do dataset;
-- distinguir correlação de diferentes combinações de tipos;
-- manter parâmetros explícitos e reproduzíveis;
-- produzir artefatos que possam ser revisados e versionados.
+- Correlação indica associação, não causalidade.
+- Importância de variável não é evidência causal e pode refletir colinearidade ou leakage.
+- MAPE, outliers, missing values e tipos inferidos devem ser interpretados com conhecimento do domínio.
+- Amostragem reduz custo, mas pode ocultar segmentos raros: use `random_state` para reprodutibilidade.
+- Para modelagem, separe treino e teste antes de qualquer transformação que aprenda parâmetros dos dados.
 
-## Limitações
+## Limitações e próximos passos
 
-- EDA automatizada não substitui conhecimento do domínio;
-- importância de Random Forest não representa causalidade;
-- inferência de tipos pode exigir ajustes em dados ambíguos;
-- grandes volumes podem demandar amostragem;
-- decisões sobre outliers e missing values permanecem com o analista.
+O SmartEDA é uma ferramenta de diagnóstico inicial, não substitui revisão estatística especializada. Próximas evoluções previstas:
 
-## Roadmap
-
-- [ ] empacotamento e publicação no PyPI;
-- [ ] testes automatizados e CI;
-- [ ] relatório HTML;
-- [ ] suporte a amostragem e datasets maiores;
-- [ ] documentação da API.
+- [ ] relatório HTML interativo;
+- [ ] suporte a Polars e DuckDB;
+- [ ] detector de possíveis IDs, leakage e variáveis constantes;
+- [ ] data profiling entre treino e teste;
+- [ ] publicação no PyPI e documentação de API.
 
 ## Licença
 
