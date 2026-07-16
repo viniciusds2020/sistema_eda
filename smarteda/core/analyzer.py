@@ -18,6 +18,9 @@ from smarteda.report.generator import ReportGenerator
 from smarteda.report.html import InteractiveHTMLReport
 from smarteda.analysis.quality import detect_quality_issues
 from smarteda.analysis.drift import profile_frame, profile_train_test as build_train_test_profile
+from smarteda.analysis.statistical_tests import distribution_tests, tests_frame
+from smarteda.analysis.conditioned import conditioned_frame, target_conditioned_drift
+from smarteda.analysis.monitoring import longitudinal_frame, monitor_windows
 
 
 class SmartEDA:
@@ -53,9 +56,13 @@ class SmartEDA:
             config: Configurações personalizadas (opcional)
             dataset_name: Nome do dataset para o relatório
         """
-        self.df = to_pandas(df)
-        self.target = target
         self.config = config or Config()
+        self.df = to_pandas(
+            df,
+            max_rows=self.config.sample_size,
+            random_state=self.config.random_state,
+        )
+        self.target = target
         self.dataset_name = dataset_name
 
         # Aplicar amostragem se configurado
@@ -270,9 +277,68 @@ class SmartEDA:
             test_df,
             target=self.target,
             bins=bins,
+            max_rows=self.config.sample_size,
+            random_state=self.config.random_state,
         )
         self.results["train_test_profile"] = comparison
         return profile_frame(comparison)
+
+    def run_distribution_tests(
+        self,
+        test_df: Any,
+        *,
+        correction: Optional[str] = None,
+        alpha: Optional[float] = None,
+    ) -> pd.DataFrame:
+        """Run train/test distribution tests with adjusted p-values."""
+        result = distribution_tests(
+            self.df,
+            test_df,
+            target=self.target,
+            alpha=alpha or self.config.statistical_alpha,
+            correction=correction or self.config.pvalue_correction,
+            max_rows=self.config.sample_size,
+            random_state=self.config.random_state,
+        )
+        self.results["statistical_drift_tests"] = result
+        return tests_frame(result)
+
+    def profile_target_conditioned(
+        self,
+        test_df: Any,
+        *,
+        target_bins: Optional[int] = None,
+        min_samples: Optional[int] = None,
+    ) -> pd.DataFrame:
+        """Profile drift inside target classes or target quantile bands."""
+        if not self.target:
+            raise ValueError("A target must be configured for conditioned drift.")
+        result = target_conditioned_drift(
+            self.df,
+            test_df,
+            target=self.target,
+            bins=self.config.drift_bins,
+            target_bins=target_bins or self.config.target_bins,
+            classification_threshold=self.config.classification_threshold,
+            min_samples=min_samples or self.config.min_segment_size,
+            max_rows=self.config.sample_size,
+            random_state=self.config.random_state,
+        )
+        self.results["target_conditioned_drift"] = result
+        return conditioned_frame(result)
+
+    def monitor_windows(self, windows: Dict[str, Any]) -> pd.DataFrame:
+        """Monitor multiple named windows against the analysis dataset."""
+        result = monitor_windows(
+            self.df,
+            windows,
+            target=self.target,
+            bins=self.config.drift_bins,
+            max_rows=self.config.sample_size,
+            random_state=self.config.random_state,
+        )
+        self.results["longitudinal_monitoring"] = result
+        return longitudinal_frame(result)
 
     def generate_html_report(self, output_path: str = "eda_report.html") -> None:
         """Generate a self-contained interactive HTML report."""
