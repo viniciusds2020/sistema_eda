@@ -73,10 +73,20 @@ def profile_train_test(
     *,
     target: str | None = None,
     bins: int = 10,
+    max_rows: int | None = None,
+    random_state: int = 42,
 ) -> dict[str, Any]:
     """Compare schema, missingness, and distributions between train and test."""
-    train_df = to_pandas(train)
-    test_df = to_pandas(test)
+    train_df = to_pandas(
+        train,
+        max_rows=max_rows,
+        random_state=random_state,
+    )
+    test_df = to_pandas(
+        test,
+        max_rows=max_rows,
+        random_state=random_state,
+    )
 
     train_columns = set(train_df.columns)
     test_columns = set(test_df.columns)
@@ -150,6 +160,7 @@ def profile_train_test(
             "new_in_test": sorted(test_columns - train_columns),
             "high_drift_features": high,
             "medium_drift_features": medium,
+            "max_rows_per_dataset": max_rows,
         },
         "features": rows,
         "thresholds": {
