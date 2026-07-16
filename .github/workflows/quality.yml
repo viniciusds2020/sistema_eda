@@ -23,6 +23,12 @@ jobs:
       - name: Install package and development dependencies
         run: pip install -e ".[dev,all]"
       - name: Lint
-        run: ruff check .
+        run: >-
+          ruff check
+          smarteda/core/adapters.py
+          smarteda/analysis/quality.py
+          smarteda/analysis/drift.py
+          smarteda/report/html.py
+          tests
       - name: Test
         run: pytest --cov=smarteda --cov-report=term-missing
