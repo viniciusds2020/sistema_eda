@@ -28,6 +28,9 @@ jobs:
           smarteda/core/adapters.py
           smarteda/analysis/quality.py
           smarteda/analysis/drift.py
+          smarteda/analysis/statistical_tests.py
+          smarteda/analysis/conditioned.py
+          smarteda/analysis/monitoring.py
           smarteda/report/html.py
           tests
       - name: Test
