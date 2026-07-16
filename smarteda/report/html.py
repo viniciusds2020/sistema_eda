@@ -28,7 +28,7 @@ class InteractiveHTMLReport:
         overview = results.get("overview", {})
         diagnostics = results.get("quality_diagnostics", {})
         comparison = results.get("train_test_profile", {})
-        figures = self._figures(df, comparison)
+        figures = self._figures(df, results)
         figure_html = []
         for index, figure in enumerate(figures):
             figure_html.append(
@@ -74,6 +74,12 @@ class InteractiveHTMLReport:
 
         if comparison:
             body.append(self._comparison_section(comparison))
+        if results.get("statistical_drift_tests"):
+            body.append(self._statistical_section(results["statistical_drift_tests"]))
+        if results.get("target_conditioned_drift"):
+            body.append(self._conditioned_section(results["target_conditioned_drift"]))
+        if results.get("longitudinal_monitoring"):
+            body.append(self._longitudinal_section(results["longitudinal_monitoring"]))
 
         body.append("<section><h2>Visualizações interativas</h2>")
         body.extend(figure_html)
@@ -87,9 +93,10 @@ class InteractiveHTMLReport:
         path.write_text("".join(body), encoding="utf-8")
 
     def _figures(
-        self, df: pd.DataFrame, comparison: dict[str, Any]
+        self, df: pd.DataFrame, results: dict[str, Any]
     ) -> list[go.Figure]:
         figures: list[go.Figure] = []
+        comparison = results.get("train_test_profile", {})
 
         missing = df.isna().mean().sort_values(ascending=False)
         if (missing > 0).any():
@@ -171,6 +178,50 @@ class InteractiveHTMLReport:
                     hover_data=["metric", "missing_rate_delta"],
                 )
             )
+        conditioned = results.get("target_conditioned_drift", {})
+        if conditioned.get("features"):
+            conditioned_df = pd.DataFrame(conditioned["features"])
+            top = conditioned_df.sort_values("drift_score", ascending=False).head(40)
+            figures.append(
+                px.bar(
+                    top,
+                    x="column",
+                    y="drift_score",
+                    color="target_segment",
+                    barmode="group",
+                    title="Drift condicionado ao target",
+                    hover_data=["drift_level", "segment_train_count", "segment_test_count"],
+                )
+            )
+
+        longitudinal = results.get("longitudinal_monitoring", {})
+        if longitudinal.get("feature_history"):
+            history = pd.DataFrame(longitudinal["feature_history"])
+            top_columns = (
+                history.groupby("column")["drift_score"]
+                .max()
+                .nlargest(12)
+                .index
+            )
+            history = history[history["column"].isin(top_columns)]
+            figures.append(
+                px.line(
+                    history,
+                    x="window",
+                    y="drift_score",
+                    color="column",
+                    markers=True,
+                    category_orders={
+                        "window": [
+                            row["window"]
+                            for row in longitudinal.get("windows", [])
+                        ]
+                    },
+                    title="Evolução longitudinal do drift",
+                    hover_data=["metric", "drift_level"],
+                )
+            )
+
         return figures
 
     @staticmethod
@@ -209,6 +260,49 @@ class InteractiveHTMLReport:
             f"Drift médio: <strong>{summary.get('medium_drift_features', 0)}</strong> · "
             f"Colunas comuns: <strong>{summary.get('common_columns', 0)}</strong></p>"
             "</section>"
+        )
+
+    def _statistical_section(self, result: dict[str, Any]) -> str:
+        rows = sorted(
+            result.get("features", []),
+            key=lambda row: row.get("adjusted_pvalue", 1.0),
+        )[:30]
+        summary = result.get("summary", {})
+        return (
+            "<section><h2>Testes estatísticos de drift</h2>"
+            f"<p>Significativos após {escape(str(summary.get('correction', '')))}: "
+            f"<strong>{summary.get('significant_after_correction', 0)}</strong></p>"
+            + self._table(
+                rows,
+                ["column", "test", "effect_size", "pvalue", "adjusted_pvalue", "significant"],
+            )
+            + "</section>"
+        )
+
+    def _conditioned_section(self, result: dict[str, Any]) -> str:
+        summary = result.get("summary", {})
+        return (
+            "<section><h2>Drift condicionado ao target</h2>"
+            f"<p>Segmentos comparados: <strong>{summary.get('segments_compared', 0)}</strong> · "
+            f"Achados de drift alto: <strong>{summary.get('high_drift_findings', 0)}</strong></p>"
+            + self._table(
+                result.get("segments", []),
+                ["target_segment", "train_count", "test_count", "status"],
+            )
+            + "</section>"
+        )
+
+    def _longitudinal_section(self, result: dict[str, Any]) -> str:
+        summary = result.get("summary", {})
+        return (
+            "<section><h2>Monitoramento longitudinal</h2>"
+            f"<p>Janelas: <strong>{summary.get('windows', 0)}</strong> · "
+            f"Com drift alto: <strong>{summary.get('windows_with_high_drift', 0)}</strong></p>"
+            + self._table(
+                result.get("windows", []),
+                ["window", "rows", "high_drift_features", "medium_drift_features"],
+            )
+            + "</section>"
         )
 
     @staticmethod
