@@ -26,7 +26,7 @@ def to_pandas(frame: Any, *, copy: bool = True) -> pd.DataFrame:
         converted = frame.to_pandas()
         return converted.copy() if copy else converted
 
-    if module == "duckdb" and hasattr(frame, "df"):
+    if module in {"duckdb", "_duckdb"} and hasattr(frame, "df"):
         converted = frame.df()
         if not isinstance(converted, pd.DataFrame):
             raise TypeError("DuckDB relation did not return a pandas DataFrame.")
