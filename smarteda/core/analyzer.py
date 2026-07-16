@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Any
 from pathlib import Path
 
 from smarteda.core.config import Config
+from smarteda.core.adapters import to_pandas
 from smarteda.core.type_inference import TypeInference, DataType
 from smarteda.analysis.numeric import NumericAnalyzer
 from smarteda.analysis.categorical import CategoricalAnalyzer
@@ -14,6 +15,9 @@ from smarteda.analysis.correlation import CorrelationAnalyzer
 from smarteda.analysis.target import TargetAnalyzer
 from smarteda.analysis.importance import ImportanceAnalyzer
 from smarteda.report.generator import ReportGenerator
+from smarteda.report.html import InteractiveHTMLReport
+from smarteda.analysis.quality import detect_quality_issues
+from smarteda.analysis.drift import profile_frame, profile_train_test as build_train_test_profile
 
 
 class SmartEDA:
@@ -35,7 +39,7 @@ class SmartEDA:
 
     def __init__(
         self,
-        df: pd.DataFrame,
+        df: Any,
         target: Optional[str] = None,
         config: Optional[Config] = None,
         dataset_name: str = "Dataset"
@@ -49,7 +53,7 @@ class SmartEDA:
             config: Configurações personalizadas (opcional)
             dataset_name: Nome do dataset para o relatório
         """
-        self.df = df.copy()
+        self.df = to_pandas(df)
         self.target = target
         self.config = config or Config()
         self.dataset_name = dataset_name
@@ -138,6 +142,11 @@ class SmartEDA:
         self.results["overview"] = self._compute_overview()
         self.results["columns_info"] = self.columns_info
         self.results["dataset_name"] = self.dataset_name
+        self.results["quality_diagnostics"] = detect_quality_issues(
+            self.df,
+            target=self.target,
+            id_unique_ratio=self.config.id_unique_ratio,
+        )
 
         # 3. Análise numérica
         if self.numeric_cols:
@@ -248,6 +257,33 @@ class SmartEDA:
             correlations["mixed_significant"] = significant
 
         return correlations
+
+    def profile_train_test(self, test_df: Any, bins: int = 10) -> pd.DataFrame:
+        """Compare this analysis dataset with a test or reference dataset.
+
+        The comparison includes schema changes, missing-rate deltas, PSI for
+        numeric features, Jensen-Shannon divergence for categorical features,
+        and unseen-category rates.
+        """
+        comparison = build_train_test_profile(
+            self.df,
+            test_df,
+            target=self.target,
+            bins=bins,
+        )
+        self.results["train_test_profile"] = comparison
+        return profile_frame(comparison)
+
+    def generate_html_report(self, output_path: str = "eda_report.html") -> None:
+        """Generate a self-contained interactive HTML report."""
+        if not self._analyzed:
+            self.analyze()
+
+        InteractiveHTMLReport().generate(
+            self.results,
+            self.df,
+            output_path,
+        )
 
     def generate_report(
         self,
