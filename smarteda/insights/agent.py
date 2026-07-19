@@ -75,6 +75,7 @@ class InsightAgent:
         tests = context.get("statistical_drift_tests", {})
         conditioned = context.get("target_conditioned_drift", {})
         longitudinal = context.get("longitudinal_monitoring", {})
+        preprocessing = context.get("preprocessing_diagnostics", {})
         findings: list[str] = []
         recommendations: list[str] = []
 
@@ -109,6 +110,18 @@ class InsightAgent:
         windows = int(longitudinal.get("summary", {}).get("windows_with_high_drift", 0) or 0)
         if windows:
             findings.append(f"{windows} janelas longitudinais apresentam drift alto.")
+        prep_summary = preprocessing.get("summary", {})
+        prep_actions = preprocessing.get("prioritized_actions", [])
+        if prep_actions:
+            findings.append(
+                f"O diagnóstico de pré-processamento priorizou {len(prep_actions)} ações."
+            )
+            recommendations.extend(
+                str(row.get("action", "")) for row in prep_actions[:3] if row.get("action")
+            )
+        non_normal = int(prep_summary.get("non_normal_numeric_columns", 0) or 0)
+        if non_normal:
+            findings.append(f"{non_normal} variáveis numéricas rejeitaram normalidade.")
         if not findings:
             findings.append("Nenhum alerta crítico foi encontrado nos resultados disponíveis.")
             recommendations.append(

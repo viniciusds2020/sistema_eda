@@ -80,6 +80,8 @@ class InteractiveHTMLReport:
             body.append(self._conditioned_section(results["target_conditioned_drift"]))
         if results.get("longitudinal_monitoring"):
             body.append(self._longitudinal_section(results["longitudinal_monitoring"]))
+        if results.get("preprocessing_diagnostics"):
+            body.append(self._preprocessing_section(results["preprocessing_diagnostics"]))
         if results.get("ai_insights"):
             body.append(self._insight_section(results["ai_insights"]))
 
@@ -316,6 +318,62 @@ class InteractiveHTMLReport:
             f"<ol>{findings}</ol></article><article><h3>Recomendações</h3>"
             f"<ol>{recommendations}</ol></article></div>"
             f"<p class='privacy'>🔒 {privacy}</p></section>"
+        )
+
+    def _preprocessing_section(self, result: dict[str, Any]) -> str:
+        summary = result.get("summary", {})
+        missing = sorted(
+            result.get("missing_data", []),
+            key=lambda row: row.get("missing_rate", 0),
+            reverse=True,
+        )[:30]
+        outliers = sorted(
+            result.get("outliers", []),
+            key=lambda row: row.get("outlier_rate", 0),
+            reverse=True,
+        )[:30]
+        normality = sorted(
+            result.get("normality_tests", []),
+            key=lambda row: row.get("pvalue", 1),
+        )[:30]
+        actions = result.get("prioritized_actions", [])[:30]
+        return (
+            "<section><h2>Diagnóstico e sugestões de pré-processamento</h2>"
+            f"<p>Ausência: <strong>{summary.get('columns_with_missing', 0)}</strong> colunas · "
+            f"Outliers: <strong>{summary.get('columns_with_outliers', 0)}</strong> colunas · "
+            f"Não normais: <strong>{summary.get('non_normal_numeric_columns', 0)}</strong> "
+            f"· Ações: <strong>{summary.get('prioritized_actions', 0)}</strong></p>"
+            "<h3>Ações priorizadas</h3>"
+            + self._table(actions, ["priority", "column", "action", "evidence"])
+            + "<h3>Dados ausentes e associação com target</h3>"
+            + self._table(
+                missing,
+                [
+                    "column",
+                    "missing_rate",
+                    "suggested_strategy",
+                    "target_adjusted_pvalue",
+                    "target_associated",
+                ],
+            )
+            + "<h3>Outliers</h3>"
+            + self._table(
+                outliers,
+                ["column", "outlier_rate", "method", "suggested_action"],
+            )
+            + "<h3>Testes de normalidade</h3>"
+            + self._table(
+                normality,
+                [
+                    "column",
+                    "test",
+                    "sample_size",
+                    "pvalue",
+                    "is_normal",
+                    "suggested_action",
+                ],
+            )
+            + f"<p class='muted'>{escape(str(result.get('disclaimer', '')))}</p></section>"
         )
 
     @staticmethod

@@ -1,7 +1,7 @@
 # SmartEDA
 
 [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/version-1.4.0-blue)](#)
+[![Version](https://img.shields.io/badge/version-1.5.0-blue)](#)
 [![DataFrames](https://img.shields.io/badge/DataFrames-pandas_%7C_Polars_%7C_DuckDB-0A7)](#escala-e-materialização)
 [![License](https://img.shields.io/badge/license-MIT-green)](#licença)
 
@@ -194,6 +194,31 @@ eda.generate_html_report(
 
 A chave permanece no ambiente Python e não é incorporada ao HTML. O contexto limita volume e tamanho de textos, remove marcação potencialmente maliciosa e exclui qualquer DataFrame bruto.
 
+## Diagnóstico de pré-processamento orientado ao target
+
+O `analyze()` agora produz `results["preprocessing_diagnostics"]` sem alterar o dataset. O diagnóstico inclui:
+
+- taxa de ausência e estratégia sugerida por tipo e distribuição;
+- associação entre missingness e target com qui-quadrado ou Mann–Whitney;
+- correção Benjamini–Hochberg para os testes de ausência;
+- outliers por IQR, taxa afetada e alternativas robustas;
+- Shapiro–Wilk, com amostragem limitada, para variáveis numéricas;
+- sugestões de transformação, scaling, imputação e tratamento de desbalanceamento;
+- ações priorizadas com evidência e alertas contra leakage.
+
+```python
+results = eda.analyze()
+diagnostics = results["preprocessing_diagnostics"]
+
+diagnostics["missing_data"]
+diagnostics["outliers"]
+diagnostics["normality_tests"]
+diagnostics["target_actions"]
+diagnostics["prioritized_actions"]
+```
+
+Imputadores, encoders, scalers e resampling devem ser ajustados somente dentro dos folds de treino. As recomendações são diagnósticas e não transformam os dados automaticamente.
+
 ## Considerações estatísticas
 
 - p-valor pequeno não implica efeito relevante;
@@ -218,4 +243,3 @@ MIT.
 ## Autor
 
 Desenvolvido por [Vinicius de Sousa](https://github.com/viniciusds2020).
-

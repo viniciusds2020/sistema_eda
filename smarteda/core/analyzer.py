@@ -10,6 +10,7 @@ from smarteda.analysis.drift import profile_frame
 from smarteda.analysis.drift import profile_train_test as build_train_test_profile
 from smarteda.analysis.importance import ImportanceAnalyzer
 from smarteda.analysis.monitoring import longitudinal_frame, monitor_windows
+from smarteda.analysis.preprocessing import preprocessing_diagnostics
 from smarteda.analysis.numeric import NumericAnalyzer
 from smarteda.analysis.quality import detect_quality_issues
 from smarteda.analysis.statistical_tests import distribution_tests, tests_frame
@@ -190,6 +191,14 @@ class SmartEDA:
             self.results["importance"] = self.importance_analyzer.analyze(
                 self.df, self.target, numeric_features, categorical_features
             )
+
+        self.results["preprocessing_diagnostics"] = preprocessing_diagnostics(
+            self.df,
+            target=self.target,
+            classification_threshold=self.config.classification_threshold,
+            alpha=self.config.statistical_alpha,
+            random_state=self.config.random_state,
+        )
 
         self._analyzed = True
         print("✅ Análise concluída!")
