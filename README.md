@@ -1,38 +1,98 @@
+<div align="center">
+
 # SmartEDA
 
-[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/version-1.6.0-blue)](#)
-[![DataFrames](https://img.shields.io/badge/DataFrames-pandas_%7C_Polars_%7C_DuckDB-0A7)](#escala-e-materialização)
-[![License](https://img.shields.io/badge/license-MIT-green)](#licença)
+### Statistical data profiling, drift monitoring and AI-assisted insights
 
-Biblioteca Python para análise exploratória, data profiling e monitoramento de drift. Combina estatística descritiva, diagnóstico de qualidade, testes com correção para múltiplas comparações, drift condicionado ao target e acompanhamento longitudinal.
+Biblioteca Python para transformar análise exploratória em diagnósticos estatísticos reproduzíveis, recomendações de pré-processamento e relatórios interativos.
+
+[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/version-1.6.0-2563EB)](#)
+[![pandas](https://img.shields.io/badge/pandas-supported-150458?logo=pandas)](https://pandas.pydata.org/)
+[![Polars](https://img.shields.io/badge/Polars-supported-CD792C?logo=polars)](https://pola.rs/)
+[![DuckDB](https://img.shields.io/badge/DuckDB-supported-FFF000?logo=duckdb&logoColor=111)](https://duckdb.org/)
+[![License](https://img.shields.io/badge/license-MIT-16A34A)](#licença)
+
+</div>
+
+## Visão geral
+
+O SmartEDA reúne em uma única API:
+
+- análise exploratória numérica, categórica, temporal e supervisionada;
+- diagnóstico de qualidade, possíveis IDs, constantes e target leakage;
+- comparação entre treino e teste com métricas e testes de drift;
+- correção para múltiplas comparações;
+- drift condicionado ao target e monitoramento longitudinal;
+- sugestões de pré-processamento baseadas em evidências;
+- diagnóstico específico para séries temporais;
+- relatórios Markdown e HTML interativos;
+- agente opcional com regras locais ou Groq/Llama.
+
+A biblioteca não transforma os dados automaticamente. Ela produz resultados estruturados e recomendações auditáveis para que decisões de tratamento sejam validadas no contexto do problema.
 
 ## Capacidades
 
-- análise numérica, categórica, temporal e supervisionada;
-- Pearson, Cramér's V e Eta-squared;
-- constantes, possíveis IDs e alertas de target leakage;
-- PSI, Jensen-Shannon, missing drift e categorias inéditas;
-- Kolmogorov–Smirnov e qui-quadrado;
-- correções Benjamini–Hochberg FDR e Bonferroni;
-- drift por classe ou faixa do target;
-- várias janelas comparadas contra uma referência;
-- pandas, Polars LazyFrame e DuckDB Relation;
-- materialização limitada antes da conversão;
-- relatórios Markdown e HTML interativos.
+| Pilar | Recursos |
+|---|---|
+| Profiling | estatísticas descritivas, tipos inferidos, missing, duplicadas, outliers e associações |
+| Qualidade | constantes, possíveis IDs e alertas heurísticos de leakage |
+| Associação | Pearson, Cramér's V, Eta-squared, ANOVA e rankings supervisionados |
+| Drift | PSI, Jensen–Shannon, missing drift, categorias inéditas e mudança de schema |
+| Inferência | KS, qui-quadrado, Benjamini–Hochberg FDR e Bonferroni |
+| Target | drift por classe ou faixa, desbalanceamento e associação da ausência com o target |
+| Pré-processamento | imputação, scaling, transformações, encoding e ações priorizadas |
+| Séries temporais | frequência, gaps, tendência, autocorrelação, sazonalidade, ADF e target shift |
+| Escala | pandas, Polars DataFrame/LazyFrame e DuckDB Relation |
+| Entrega | resultados Python, Markdown, HTML interativo e Insight Agent |
+
+## Arquitetura
+
+```mermaid
+flowchart TD
+    A["pandas, Polars ou DuckDB"] --> B["SmartEDA"]
+    B --> C["Profiling e qualidade"]
+    B --> D["Drift e testes"]
+    B --> E["Pré-processamento e séries temporais"]
+    C --> F["Resultados estruturados"]
+    D --> F
+    E --> F
+    F --> G["Relatório HTML"]
+    F --> H["Insight Agent"]
+```
+
+Para Polars LazyFrame e DuckDB Relation, o limite de linhas é aplicado antes da coleta. A análise estatística utiliza pandas internamente após a materialização controlada.
 
 ## Instalação
+
+### Instalação completa
 
 ```bash
 git clone https://github.com/viniciusds2020/sistema_eda.git
 cd sistema_eda
 python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-# .venv\Scripts\activate # Windows
+source .venv/bin/activate
 pip install -e ".[all]"
 ```
 
-## Fluxo completo
+No Windows:
+
+```powershell
+.venv\Scripts\activate
+pip install -e ".[all]"
+```
+
+### Extras disponíveis
+
+| Extra | Finalidade |
+|---|---|
+| `polars` | Polars DataFrame e LazyFrame |
+| `duckdb` | DuckDB Relation |
+| `timeseries` | teste ADF com statsmodels |
+| `all` | todos os conectores e diagnóstico temporal completo |
+| `dev` | pytest, cobertura e Ruff |
+
+## Início rápido
 
 ```python
 from smarteda import Config, SmartEDA
@@ -51,9 +111,27 @@ eda = SmartEDA(
 )
 
 results = eda.analyze()
-overall = eda.profile_train_test(test_df)
-tests = eda.run_distribution_tests(test_df)
-conditioned = eda.profile_target_conditioned(test_df)
+eda.generate_html_report("reports/eda.html")
+```
+
+O `analyze()` executa o profiling principal e adiciona automaticamente diagnósticos de qualidade, pré-processamento e séries temporais quando houver colunas compatíveis.
+
+## Workflow de monitoramento
+
+```python
+train_test = eda.profile_train_test(test_df)
+
+statistical_tests = eda.run_distribution_tests(
+    test_df,
+    correction="fdr_bh",
+    alpha=0.05,
+)
+
+conditioned = eda.profile_target_conditioned(
+    test_df,
+    target_bins=5,
+    min_samples=100,
+)
 
 history = eda.monitor_windows(
     {
@@ -66,111 +144,91 @@ history = eda.monitor_windows(
 eda.generate_html_report("reports/monitoring.html")
 ```
 
-## Testes estatísticos e múltiplas comparações
+### Testes e métricas
 
-```python
-tests = eda.run_distribution_tests(
-    test_df,
-    correction="fdr_bh",  # ou bonferroni
-    alpha=0.05,
-)
-```
-
-| Tipo de feature | Teste | Tamanho de efeito |
+| Tipo de variável | Comparação | Tamanho de efeito ou indicador |
 |---|---|---|
-| Numérica | KS de duas amostras | estatística KS |
-| Categórica | qui-quadrado de homogeneidade | Cramér's V |
+| Numérica | KS de duas amostras | estatística KS e PSI |
+| Categórica | qui-quadrado de homogeneidade | Cramér's V e Jensen–Shannon |
+| Missingness × target categórico | qui-quadrado | p-valor ajustado por FDR |
+| Missingness × target contínuo | Mann–Whitney | p-valor ajustado por FDR |
 
-O p-valor ajustado controla o volume de falsos positivos produzido ao testar muitas colunas. Significância deve ser interpretada junto com tamanho de efeito, drift operacional e impacto no modelo.
+O drift condicionado separa targets discretos por classe e targets contínuos por quantis calculados na referência. Isso ajuda a localizar mudanças concentradas em segmentos de risco, valor ou comportamento.
 
-## Drift condicionado ao target
-
-```python
-conditioned = eda.profile_target_conditioned(
-    test_df,
-    target_bins=5,
-    min_samples=100,
-)
-```
-
-- targets discretos são segmentados por classe;
-- targets contínuos usam quantis calculados no treino;
-- segmentos pequenos são marcados como insuficientes;
-- PSI e Jensen-Shannon são recalculados dentro de cada segmento.
-
-Isso permite distinguir mudança global de mudança concentrada em uma classe, faixa de risco ou faixa de valor.
-
-## Escala e materialização
+## Diagnóstico de pré-processamento
 
 ```python
-config = Config(sample_size=200_000)
-eda = SmartEDA(polars_lazyframe, config=config)
+preprocessing = results["preprocessing_diagnostics"]
+
+preprocessing["missing_data"]
+preprocessing["outliers"]
+preprocessing["normality_tests"]
+preprocessing["target_actions"]
+preprocessing["prioritized_actions"]
 ```
 
-O `sample_size` funciona como limite de materialização:
+O diagnóstico inclui:
 
-| Fonte | Estratégia |
-|---|---|
-| pandas | amostragem aleatória reprodutível |
-| Polars DataFrame | `sample()` antes da conversão |
-| Polars LazyFrame | `limit()` antes de `collect()` |
-| DuckDB Relation | `limit()` antes de `.df()` |
+- taxa de ausência e estratégia sugerida por tipo e distribuição;
+- associação da ausência com o target;
+- correção Benjamini–Hochberg para os testes de missingness;
+- outliers por IQR e percentual afetado;
+- Shapiro–Wilk com amostragem limitada;
+- sugestões de `StandardScaler`, `RobustScaler`, `log1p` e Yeo–Johnson;
+- recomendações para targets desbalanceados;
+- ações priorizadas acompanhadas da evidência utilizada.
 
-Para fontes lazy, o limite é enviado ao motor antes da coleta. A análise continua usando pandas internamente, mas a fonte completa não precisa ser carregada em memória.
+Imputadores, encoders, scalers e resampling devem ser ajustados dentro de cada fold de treino. As recomendações não alteram o DataFrame original.
 
-## Monitoramento longitudinal
+## Séries temporais
+
+Quando uma coluna temporal é identificada, o SmartEDA gera:
 
 ```python
-history = eda.monitor_windows(
-    {
-        "baseline+1": window_1,
-        "baseline+2": window_2,
-        "baseline+3": window_3,
-    }
-)
+temporal = results["time_series_diagnostics"]
+
+temporal["time_axes"]
+temporal["signals"]
+temporal["target_temporal_analysis"]
+temporal["prioritized_actions"]
 ```
 
-Cada janela é comparada contra a mesma referência. O resultado contém:
+O diagnóstico cobre:
 
-- resumo por janela;
-- histórico por feature;
-- nível de drift;
-- mudanças de missing e schema;
-- série temporal exibida no relatório HTML.
+- frequência inferida, regularidade e intervalo mediano;
+- timestamps inválidos, ausentes e duplicados;
+- gaps e necessidade de reindexação;
+- tendência monotônica por Spearman;
+- autocorrelação de primeira ordem e autocorrelação sazonal;
+- mudança padronizada entre períodos;
+- teste ADF opcional para estacionariedade;
+- mudança temporal do target em classificação e regressão.
 
-Use definições de janela estáveis — por dia, semana, mês ou lote — para evitar que mudanças de granularidade sejam confundidas com drift.
+As ações recomendam rolling-origin ou `TimeSeriesSplit`, criação de lags com deslocamento, rolling features sem informação futura e ajuste do pré-processamento por janela de treino.
 
-## Resultados estruturados
-
-```python
-results["quality_diagnostics"]
-results["train_test_profile"]
-results["statistical_drift_tests"]
-results["target_conditioned_drift"]
-results["longitudinal_monitoring"]
+```bash
+pip install -e ".[timeseries]"
 ```
 
-## Relatório HTML
-
-O relatório reúne cartões de qualidade, testes corrigidos, segmentos do target, tabelas de janelas e gráficos interativos de drift geral, condicional e longitudinal.
-
-```python
-eda.generate_html_report("reports/monitoring.html")
-```
+Sem esse extra, os demais diagnósticos temporais continuam disponíveis e o ADF é marcado como indisponível.
 
 ## SmartEDA Insight Agent
 
-O relatório pode gerar uma leitura executiva local ou usar Groq/Llama 3. O agente recebe somente estatísticas agregadas e resultados compactados — nunca linhas do dataset.
+O agente interpreta os resultados agregados do SmartEDA. Ele não recebe linhas do dataset.
 
-### Modo local, sem API
+### Modo determinístico e local
 
 ```python
 insights = eda.generate_insights(provider="rules")
 answer = eda.ask("Quais ações você recomenda?")
-eda.generate_html_report("reports/monitoring.html", enable_agent=True)
+
+eda.generate_html_report(
+    "reports/eda_with_insights.html",
+    enable_agent=True,
+)
 ```
 
-### Groq com Llama 3
+### Groq com modelo Llama configurável
 
 ```bash
 export GROQ_API_KEY="sua-chave"
@@ -181,83 +239,93 @@ insights = eda.generate_insights(
     provider="groq",
     model="llama-3.3-70b-versatile",
 )
+
 answer = eda.ask(
     "Quais variáveis representam maior risco para o modelo?",
     provider="groq",
 )
+
 eda.generate_html_report(
-    "reports/monitoring.html",
+    "reports/eda_with_insights.html",
     enable_agent=True,
     agent_provider="groq",
 )
 ```
 
-A chave permanece no ambiente Python e não é incorporada ao HTML. O contexto limita volume e tamanho de textos, remove marcação potencialmente maliciosa e exclui qualquer DataFrame bruto.
+### Privacidade e economia de tokens
 
-## Diagnóstico de pré-processamento orientado ao target
+Antes da chamada externa, o SmartEDA:
 
-O `analyze()` agora produz `results["preprocessing_diagnostics"]` sem alterar o dataset. O diagnóstico inclui:
+- seleciona apenas seções estatísticas permitidas;
+- rejeita DataFrames brutos;
+- limita quantidade de itens e tamanho dos textos;
+- remove marcação potencialmente maliciosa;
+- envia contexto JSON compacto;
+- mantém a chave Groq somente no ambiente Python.
 
-- taxa de ausência e estratégia sugerida por tipo e distribuição;
-- associação entre missingness e target com qui-quadrado ou Mann–Whitney;
-- correção Benjamini–Hochberg para os testes de ausência;
-- outliers por IQR, taxa afetada e alternativas robustas;
-- Shapiro–Wilk, com amostragem limitada, para variáveis numéricas;
-- sugestões de transformação, scaling, imputação e tratamento de desbalanceamento;
-- ações priorizadas com evidência e alertas contra leakage.
+A resposta gerada pode ser incorporada ao HTML, mas a credencial nunca é gravada no relatório.
 
-```python
-results = eda.analyze()
-diagnostics = results["preprocessing_diagnostics"]
-
-diagnostics["missing_data"]
-diagnostics["outliers"]
-diagnostics["normality_tests"]
-diagnostics["target_actions"]
-diagnostics["prioritized_actions"]
-```
-
-Imputadores, encoders, scalers e resampling devem ser ajustados somente dentro dos folds de treino. As recomendações são diagnósticas e não transformam os dados automaticamente.
-
-## Diagnóstico de séries temporais
-
-Quando o dataset possui uma coluna temporal, o `analyze()` também gera `results["time_series_diagnostics"]`:
-
-- frequência inferida, regularidade e intervalo mediano;
-- timestamps inválidos, ausentes e duplicados;
-- gaps relevantes e necessidade de reindexação;
-- tendência monotônica por Spearman;
-- autocorrelação de primeira ordem e sazonal;
-- mudança padronizada entre a primeira e a segunda metade;
-- ADF opcional para estacionariedade;
-- mudança temporal do target para classificação ou regressão;
-- ações contra leakage em lags, rolling features e pré-processamento;
-- recomendação de rolling-origin ou `TimeSeriesSplit`, nunca split aleatório.
-
-```bash
-pip install -e ".[timeseries]"  # inclui statsmodels para ADF
-```
+## Escala e materialização
 
 ```python
-results = eda.analyze()
-temporal = results["time_series_diagnostics"]
+from smarteda import Config, SmartEDA
 
-temporal["time_axes"]
-temporal["signals"]
-temporal["target_temporal_analysis"]
-temporal["prioritized_actions"]
+eda = SmartEDA(
+    polars_lazyframe,
+    config=Config(sample_size=200_000),
+)
 ```
 
-Sem o extra `timeseries`, todo o diagnóstico continua funcionando, exceto o teste ADF, que é marcado como indisponível no resultado.
+| Fonte | Estratégia |
+|---|---|
+| pandas | amostragem aleatória reprodutível |
+| Polars DataFrame | `sample()` antes da conversão |
+| Polars LazyFrame | `limit()` antes de `collect()` |
+| DuckDB Relation | `limit()` antes de `.df()` |
 
-## Considerações estatísticas
+O `sample_size` limita a materialização, mas não transforma o SmartEDA em um motor distribuído. O tamanho da amostra deve ser definido considerando memória, estabilidade das métricas e representatividade.
 
-- p-valor pequeno não implica efeito relevante;
-- testes ficam muito sensíveis em amostras grandes;
-- correção FDR é menos conservadora que Bonferroni;
+## Resultados estruturados
+
+| Chave | Conteúdo |
+|---|---|
+| `overview` | dimensões, missing, duplicadas e memória |
+| `quality_diagnostics` | constantes, IDs e possíveis leakages |
+| `numeric_stats` | estatísticas, outliers e normalidade |
+| `categorical_stats` | frequências, entropia e categorias raras |
+| `target_analysis` | relações e ranking supervisionado |
+| `preprocessing_diagnostics` | sugestões e ações priorizadas |
+| `time_series_diagnostics` | estrutura temporal, sinais e target shift |
+| `train_test_profile` | drift entre referência e comparação |
+| `statistical_drift_tests` | testes, efeitos e p-valores corrigidos |
+| `target_conditioned_drift` | drift dentro dos segmentos do target |
+| `longitudinal_monitoring` | histórico por janela e variável |
+| `ai_insights` | resumo e recomendações do agente |
+
+## Relatórios
+
+```python
+eda.generate_report("reports/eda.md")
+
+eda.generate_html_report(
+    "reports/eda.html",
+    enable_agent=True,
+    agent_provider="rules",
+)
+```
+
+O HTML é autocontido e reúne cartões de qualidade, tabelas estatísticas, gráficos Plotly, drift, pré-processamento, séries temporais e insights.
+
+## Princípios estatísticos
+
+- significância estatística não implica relevância prática;
+- p-valores devem ser interpretados com tamanho de efeito;
+- grandes amostras tornam testes mais sensíveis;
+- PSI e Jensen–Shannon são indicadores operacionais, não testes causais;
+- normalidade não é requisito para todos os modelos;
+- outliers podem representar erro, evento raro ou sinal de negócio;
 - condicionamento no target é diagnóstico e não substitui métricas do modelo;
-- PSI e Jensen-Shannon são indicadores operacionais, não testes causais;
-- limites e tamanhos mínimos devem ser calibrados por domínio.
+- limites, janelas e estratégias devem ser calibrados por domínio.
 
 ## Desenvolvimento
 
@@ -267,10 +335,21 @@ ruff check smarteda tests
 pytest --cov=smarteda --cov-report=term-missing
 ```
 
+## Limitações conhecidas
+
+- a análise principal é executada em pandas após materialização controlada;
+- as sugestões de pré-processamento não constituem um pipeline treinado;
+- o agente produz interpretação, não causalidade;
+- o ADF requer o extra `timeseries`;
+- alertas de ID e leakage são heurísticos e exigem validação de domínio.
+
 ## Licença
 
-MIT.
+Distribuído sob a licença MIT.
 
 ## Autor
 
 Desenvolvido por [Vinicius de Sousa](https://github.com/viniciusds2020).
+
+Se este projeto for útil, considere marcar o repositório com uma estrela.
+
