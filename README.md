@@ -1,7 +1,7 @@
 # SmartEDA
 
 [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/version-1.3.0-blue)](#)
+[![Version](https://img.shields.io/badge/version-1.4.0-blue)](#)
 [![DataFrames](https://img.shields.io/badge/DataFrames-pandas_%7C_Polars_%7C_DuckDB-0A7)](#escala-e-materialização)
 [![License](https://img.shields.io/badge/license-MIT-green)](#licença)
 
@@ -158,6 +158,42 @@ O relatório reúne cartões de qualidade, testes corrigidos, segmentos do targe
 eda.generate_html_report("reports/monitoring.html")
 ```
 
+## SmartEDA Insight Agent
+
+O relatório pode gerar uma leitura executiva local ou usar Groq/Llama 3. O agente recebe somente estatísticas agregadas e resultados compactados — nunca linhas do dataset.
+
+### Modo local, sem API
+
+```python
+insights = eda.generate_insights(provider="rules")
+answer = eda.ask("Quais ações você recomenda?")
+eda.generate_html_report("reports/monitoring.html", enable_agent=True)
+```
+
+### Groq com Llama 3
+
+```bash
+export GROQ_API_KEY="sua-chave"
+```
+
+```python
+insights = eda.generate_insights(
+    provider="groq",
+    model="llama-3.3-70b-versatile",
+)
+answer = eda.ask(
+    "Quais variáveis representam maior risco para o modelo?",
+    provider="groq",
+)
+eda.generate_html_report(
+    "reports/monitoring.html",
+    enable_agent=True,
+    agent_provider="groq",
+)
+```
+
+A chave permanece no ambiente Python e não é incorporada ao HTML. O contexto limita volume e tamanho de textos, remove marcação potencialmente maliciosa e exclui qualquer DataFrame bruto.
+
 ## Considerações estatísticas
 
 - p-valor pequeno não implica efeito relevante;
@@ -182,3 +218,4 @@ MIT.
 ## Autor
 
 Desenvolvido por [Vinicius de Sousa](https://github.com/viniciusds2020).
+

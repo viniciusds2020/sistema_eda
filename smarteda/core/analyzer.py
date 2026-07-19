@@ -1,26 +1,27 @@
 """Classe principal SmartEDA."""
 
+from typing import Any, Dict, Optional
+
 import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Any
-from pathlib import Path
+from smarteda.analysis.categorical import CategoricalAnalyzer
+from smarteda.analysis.conditioned import conditioned_frame, target_conditioned_drift
+from smarteda.analysis.correlation import CorrelationAnalyzer
+from smarteda.analysis.drift import profile_frame
+from smarteda.analysis.drift import profile_train_test as build_train_test_profile
+from smarteda.analysis.importance import ImportanceAnalyzer
+from smarteda.analysis.monitoring import longitudinal_frame, monitor_windows
+from smarteda.analysis.numeric import NumericAnalyzer
+from smarteda.analysis.quality import detect_quality_issues
+from smarteda.analysis.statistical_tests import distribution_tests, tests_frame
+from smarteda.analysis.target import TargetAnalyzer
+from smarteda.analysis.temporal import TemporalAnalyzer
+from smarteda.core.adapters import to_pandas
+from smarteda.core.type_inference import DataType, TypeInference
+from smarteda.report.generator import ReportGenerator
 
 from smarteda.core.config import Config
-from smarteda.core.adapters import to_pandas
-from smarteda.core.type_inference import TypeInference, DataType
-from smarteda.analysis.numeric import NumericAnalyzer
-from smarteda.analysis.categorical import CategoricalAnalyzer
-from smarteda.analysis.temporal import TemporalAnalyzer
-from smarteda.analysis.correlation import CorrelationAnalyzer
-from smarteda.analysis.target import TargetAnalyzer
-from smarteda.analysis.importance import ImportanceAnalyzer
-from smarteda.report.generator import ReportGenerator
+from smarteda.insights import InsightAgent, InsightContextBuilder
 from smarteda.report.html import InteractiveHTMLReport
-from smarteda.analysis.quality import detect_quality_issues
-from smarteda.analysis.drift import profile_frame, profile_train_test as build_train_test_profile
-from smarteda.analysis.statistical_tests import distribution_tests, tests_frame
-from smarteda.analysis.conditioned import conditioned_frame, target_conditioned_drift
-from smarteda.analysis.monitoring import longitudinal_frame, monitor_windows
 
 
 class SmartEDA:
@@ -45,7 +46,7 @@ class SmartEDA:
         df: Any,
         target: Optional[str] = None,
         config: Optional[Config] = None,
-        dataset_name: str = "Dataset"
+        dataset_name: str = "Dataset",
     ):
         """
         Inicializa o SmartEDA.
@@ -68,25 +69,23 @@ class SmartEDA:
         # Aplicar amostragem se configurado
         if self.config.sample_size and len(self.df) > self.config.sample_size:
             self.df = self.df.sample(
-                n=self.config.sample_size,
-                random_state=self.config.random_state
+                n=self.config.sample_size, random_state=self.config.random_state
             )
 
         # Inicializar analisadores
         self.type_inference = TypeInference(
             categorical_threshold=self.config.categorical_threshold,
-            id_unique_ratio=self.config.id_unique_ratio
+            id_unique_ratio=self.config.id_unique_ratio,
         )
 
         self.numeric_analyzer = NumericAnalyzer(
             percentiles=self.config.percentiles,
             iqr_multiplier=self.config.outlier_iqr_multiplier,
-            zscore_threshold=self.config.outlier_zscore_threshold
+            zscore_threshold=self.config.outlier_zscore_threshold,
         )
 
         self.categorical_analyzer = CategoricalAnalyzer(
-            top_n=self.config.top_n_categories,
-            rare_threshold=self.config.rare_category_threshold
+            top_n=self.config.top_n_categories, rare_threshold=self.config.rare_category_threshold
         )
 
         self.temporal_analyzer = TemporalAnalyzer()
@@ -99,15 +98,13 @@ class SmartEDA:
             classification_threshold=self.config.classification_threshold
         )
 
-        self.importance_analyzer = ImportanceAnalyzer(
-            random_state=self.config.random_state
-        )
+        self.importance_analyzer = ImportanceAnalyzer(random_state=self.config.random_state)
 
         self.report_generator = ReportGenerator(
             include_plots=self.config.include_plots,
             plot_format=self.config.plot_format,
             plot_dpi=self.config.plot_dpi,
-            max_categories_plot=self.config.max_categories_plot
+            max_categories_plot=self.config.max_categories_plot,
         )
 
         # Resultados
@@ -132,16 +129,13 @@ class SmartEDA:
 
         # Separar colunas por tipo
         self.numeric_cols = self.type_inference.get_columns_by_type(
-            self.columns_info,
-            [DataType.NUMERIC_CONTINUOUS, DataType.NUMERIC_DISCRETE]
+            self.columns_info, [DataType.NUMERIC_CONTINUOUS, DataType.NUMERIC_DISCRETE]
         )
         self.categorical_cols = self.type_inference.get_columns_by_type(
-            self.columns_info,
-            [DataType.CATEGORICAL, DataType.BINARY]
+            self.columns_info, [DataType.CATEGORICAL, DataType.BINARY]
         )
         self.temporal_cols = self.type_inference.get_columns_by_type(
-            self.columns_info,
-            [DataType.DATETIME]
+            self.columns_info, [DataType.DATETIME]
         )
 
         # 2. Visão geral
@@ -231,7 +225,7 @@ class SmartEDA:
             "total_missing": total_missing,
             "total_missing_pct": total_missing_pct,
             "duplicate_rows": duplicate_rows,
-            "memory_mb": memory_mb
+            "memory_mb": memory_mb,
         }
 
     def _compute_correlations(self) -> Dict[str, Any]:
@@ -340,10 +334,66 @@ class SmartEDA:
         self.results["longitudinal_monitoring"] = result
         return longitudinal_frame(result)
 
-    def generate_html_report(self, output_path: str = "eda_report.html") -> None:
-        """Generate a self-contained interactive HTML report."""
+    def build_insight_context(self) -> Dict[str, Any]:
+        """Return a compact context containing aggregate results only."""
         if not self._analyzed:
             self.analyze()
+        return InsightContextBuilder().build(self.results)
+
+    def generate_insights(
+        self,
+        *,
+        provider: str = "rules",
+        model: str = "llama-3.3-70b-versatile",
+        api_key: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Generate local or Groq/Llama insights from aggregate statistics."""
+        if not self._analyzed:
+            self.analyze()
+        insights = InsightAgent(
+            provider=provider,
+            model=model,
+            api_key=api_key,
+        ).summarize(self.results)
+        self.results["ai_insights"] = insights
+        return insights
+
+    def ask(
+        self,
+        question: str,
+        *,
+        provider: str = "rules",
+        model: str = "llama-3.3-70b-versatile",
+        api_key: Optional[str] = None,
+    ) -> str:
+        """Ask a question using only compact statistical results."""
+        if not self._analyzed:
+            self.analyze()
+        return InsightAgent(
+            provider=provider,
+            model=model,
+            api_key=api_key,
+        ).ask(question, self.results)
+
+    def generate_html_report(
+        self,
+        output_path: str = "eda_report.html",
+        *,
+        enable_agent: bool = False,
+        agent_provider: str = "rules",
+        agent_model: str = "llama-3.3-70b-versatile",
+        api_key: Optional[str] = None,
+    ) -> None:
+        """Generate a self-contained report with optional precomputed insights."""
+        if not self._analyzed:
+            self.analyze()
+
+        if enable_agent:
+            self.generate_insights(
+                provider=agent_provider,
+                model=agent_model,
+                api_key=api_key,
+            )
 
         InteractiveHTMLReport().generate(
             self.results,
@@ -352,9 +402,7 @@ class SmartEDA:
         )
 
     def generate_report(
-        self,
-        output_path: str = "eda_report.md",
-        include_html: bool = True
+        self, output_path: str = "eda_report.md", include_html: bool = True
     ) -> None:
         """
         Gera relatório em Markdown.
@@ -368,13 +416,8 @@ class SmartEDA:
             self.analyze()
 
         print(f"📝 Gerando relatório em '{output_path}'...")
-        self.report_generator.generate(
-            self.results,
-            output_path,
-            self.df,
-            include_html
-        )
-        print(f"✅ Relatório salvo!")
+        self.report_generator.generate(self.results, output_path, self.df, include_html)
+        print("✅ Relatório salvo!")
 
     def get_numeric_summary(self) -> pd.DataFrame:
         """Retorna resumo das variáveis numéricas como DataFrame."""
@@ -400,7 +443,7 @@ class SmartEDA:
         return self.correlation_analyzer.get_all_significant_correlations(
             correlations.get("numeric_significant", []),
             correlations.get("categorical_significant", []),
-            correlations.get("mixed_significant", [])
+            correlations.get("mixed_significant", []),
         )
 
     def get_target_summary(self) -> pd.DataFrame:

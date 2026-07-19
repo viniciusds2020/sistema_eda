@@ -80,6 +80,8 @@ class InteractiveHTMLReport:
             body.append(self._conditioned_section(results["target_conditioned_drift"]))
         if results.get("longitudinal_monitoring"):
             body.append(self._longitudinal_section(results["longitudinal_monitoring"]))
+        if results.get("ai_insights"):
+            body.append(self._insight_section(results["ai_insights"]))
 
         body.append("<section><h2>Visualizações interativas</h2>")
         body.extend(figure_html)
@@ -92,9 +94,7 @@ class InteractiveHTMLReport:
         )
         path.write_text("".join(body), encoding="utf-8")
 
-    def _figures(
-        self, df: pd.DataFrame, results: dict[str, Any]
-    ) -> list[go.Figure]:
+    def _figures(self, df: pd.DataFrame, results: dict[str, Any]) -> list[go.Figure]:
         figures: list[go.Figure] = []
         comparison = results.get("train_test_profile", {})
 
@@ -113,11 +113,11 @@ class InteractiveHTMLReport:
 
         numeric = list(df.select_dtypes(include=np.number).columns[:8])
         if numeric:
-            melted = df[numeric].melt(var_name="variable", value_name="value")
+            melted = df[numeric].melt(var_name="variable", value_name="_smarteda_value")
             figures.append(
                 px.histogram(
                     melted,
-                    x="value",
+                    x="_smarteda_value",
                     facet_col="variable",
                     facet_col_wrap=2,
                     title="Distribuições numéricas",
@@ -136,9 +136,7 @@ class InteractiveHTMLReport:
                 )
             )
 
-        categorical = list(
-            df.select_dtypes(include=["object", "category", "bool"]).columns[:6]
-        )
+        categorical = list(df.select_dtypes(include=["object", "category", "bool"]).columns[:6])
         for column in categorical:
             counts = (
                 df[column]
@@ -159,9 +157,7 @@ class InteractiveHTMLReport:
             )
 
         if comparison.get("features"):
-            drift = pd.DataFrame(comparison["features"]).sort_values(
-                "drift_score", ascending=False
-            )
+            drift = pd.DataFrame(comparison["features"]).sort_values("drift_score", ascending=False)
             figures.append(
                 px.bar(
                     drift,
@@ -197,12 +193,7 @@ class InteractiveHTMLReport:
         longitudinal = results.get("longitudinal_monitoring", {})
         if longitudinal.get("feature_history"):
             history = pd.DataFrame(longitudinal["feature_history"])
-            top_columns = (
-                history.groupby("column")["drift_score"]
-                .max()
-                .nlargest(12)
-                .index
-            )
+            top_columns = history.groupby("column")["drift_score"].max().nlargest(12).index
             history = history[history["column"].isin(top_columns)]
             figures.append(
                 px.line(
@@ -212,10 +203,7 @@ class InteractiveHTMLReport:
                     color="column",
                     markers=True,
                     category_orders={
-                        "window": [
-                            row["window"]
-                            for row in longitudinal.get("windows", [])
-                        ]
+                        "window": [row["window"] for row in longitudinal.get("windows", [])]
                     },
                     title="Evolução longitudinal do drift",
                     hover_data=["metric", "drift_level"],
@@ -241,11 +229,17 @@ class InteractiveHTMLReport:
     def _quality_section(self, diagnostics: dict[str, Any]) -> str:
         rows = []
         for item in diagnostics.get("constant_columns", []):
-            rows.append({"column": item["column"], "check": "constant", "severity": item["severity"]})
+            rows.append(
+                {"column": item["column"], "check": "constant", "severity": item["severity"]}
+            )
         for item in diagnostics.get("possible_ids", []):
-            rows.append({"column": item["column"], "check": "possible_id", "severity": item["severity"]})
+            rows.append(
+                {"column": item["column"], "check": "possible_id", "severity": item["severity"]}
+            )
         for item in diagnostics.get("possible_leakage", []):
-            rows.append({"column": item["column"], "check": item["check"], "severity": item["severity"]})
+            rows.append(
+                {"column": item["column"], "check": item["check"], "severity": item["severity"]}
+            )
         return (
             "<section><h2>Diagnóstico de qualidade</h2>"
             + self._table(rows, ["column", "check", "severity"])
@@ -305,6 +299,25 @@ class InteractiveHTMLReport:
             + "</section>"
         )
 
+    def _insight_section(self, result: dict[str, Any]) -> str:
+        findings = "".join(f"<li>{escape(str(item))}</li>" for item in result.get("findings", []))
+        recommendations = "".join(
+            f"<li>{escape(str(item))}</li>" for item in result.get("recommendations", [])
+        )
+        provider = escape(str(result.get("provider", "rules")))
+        model = escape(str(result.get("model") or "deterministic"))
+        privacy = escape(str(result.get("privacy", "")))
+        return (
+            "<section class='agent'><div class='agent-title'>"
+            "<div><small>SMARTEDA INSIGHT AGENT</small><h2>Leitura assistida do relatório</h2></div>"
+            f"<span class='badge'>{provider} · {model}</span></div>"
+            f"<p class='agent-summary'>{escape(str(result.get('executive_summary', '')))}</p>"
+            "<div class='agent-grid'><article><h3>Achados</h3>"
+            f"<ol>{findings}</ol></article><article><h3>Recomendações</h3>"
+            f"<ol>{recommendations}</ol></article></div>"
+            f"<p class='privacy'>🔒 {privacy}</p></section>"
+        )
+
     @staticmethod
     def _styles() -> str:
         return """<style>
@@ -315,4 +328,8 @@ class InteractiveHTMLReport:
         .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;background:none;border:0;padding:0}
         .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}.card small{display:block;color:var(--muted)}.card strong{display:block;font-size:25px;margin-top:6px}
         .table-wrap{overflow:auto}table{border-collapse:collapse;width:100%}th,td{text-align:left;border-bottom:1px solid var(--line);padding:10px}th{color:var(--accent)}
+        .agent{border-color:#0ea5e9;background:linear-gradient(145deg,#0f1d2e,#10283c)}
+        .agent-title{display:flex;align-items:center;justify-content:space-between;gap:16px}.agent-title small,.privacy{color:var(--accent)}
+        .badge{border:1px solid var(--accent);border-radius:999px;padding:7px 11px}.agent-summary{font-size:18px;line-height:1.6}
+        .agent-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}.agent-grid article{background:#091727;border-radius:14px;padding:16px}.agent-grid li{margin:9px 0;line-height:1.5}
         footer{text-align:center;padding:26px}</style>"""

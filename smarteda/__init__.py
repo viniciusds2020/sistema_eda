@@ -8,8 +8,9 @@ from smarteda.analysis.statistical_tests import distribution_tests
 from smarteda.core.adapters import to_pandas
 from smarteda.core.analyzer import SmartEDA
 from smarteda.core.config import Config
+from smarteda.insights import InsightAgent, InsightAgentError, InsightContextBuilder
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 
 __all__ = [
     "SmartEDA",
@@ -20,4 +21,7 @@ __all__ = [
     "distribution_tests",
     "target_conditioned_drift",
     "monitor_windows",
+    "InsightAgent",
+    "InsightAgentError",
+    "InsightContextBuilder",
 ]
