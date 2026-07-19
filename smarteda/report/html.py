@@ -82,6 +82,8 @@ class InteractiveHTMLReport:
             body.append(self._longitudinal_section(results["longitudinal_monitoring"]))
         if results.get("preprocessing_diagnostics"):
             body.append(self._preprocessing_section(results["preprocessing_diagnostics"]))
+        if results.get("time_series_diagnostics", {}).get("summary", {}).get("time_columns", 0):
+            body.append(self._time_series_section(results["time_series_diagnostics"]))
         if results.get("ai_insights"):
             body.append(self._insight_section(results["ai_insights"]))
 
@@ -371,6 +373,62 @@ class InteractiveHTMLReport:
                     "pvalue",
                     "is_normal",
                     "suggested_action",
+                ],
+            )
+            + f"<p class='muted'>{escape(str(result.get('disclaimer', '')))}</p></section>"
+        )
+
+    def _time_series_section(self, result: dict[str, Any]) -> str:
+        summary = result.get("summary", {})
+        axes = result.get("time_axes", [])[:20]
+        signals = result.get("signals", [])[:40]
+        target = result.get("target_temporal_analysis", [])[:20]
+        actions = result.get("prioritized_actions", [])[:30]
+        return (
+            "<section><h2>Diagnóstico de séries temporais</h2>"
+            f"<p>Eixos: <strong>{summary.get('time_columns', 0)}</strong> · "
+            f"Sinais: <strong>{summary.get('signals_analyzed', 0)}</strong> · "
+            f"Eixos com gaps: <strong>{summary.get('axes_with_gaps', 0)}</strong> · "
+            f"Timestamps duplicados: <strong>{summary.get('duplicate_timestamps', 0)}</strong> · "
+            f"Mudanças no target: <strong>{summary.get('target_temporal_shifts', 0)}</strong></p>"
+            "<h3>Ações temporais priorizadas</h3>"
+            + self._table(actions, ["priority", "time_column", "action", "evidence"])
+            + "<h3>Estrutura dos eixos temporais</h3>"
+            + self._table(
+                axes,
+                [
+                    "column",
+                    "count",
+                    "invalid_or_missing",
+                    "duplicate_timestamps",
+                    "inferred_frequency",
+                    "regularity_ratio",
+                ],
+            )
+            + "<h3>Sinais, tendência, sazonalidade e estacionariedade</h3>"
+            + self._table(
+                signals,
+                [
+                    "time_column",
+                    "value_column",
+                    "trend_spearman",
+                    "trend_pvalue",
+                    "lag1_autocorrelation",
+                    "seasonal_period",
+                    "seasonal_autocorrelation",
+                    "standardized_mean_shift",
+                ],
+            )
+            + "<h3>Target ao longo do tempo</h3>"
+            + self._table(
+                target,
+                [
+                    "time_column",
+                    "target",
+                    "target_type",
+                    "test",
+                    "pvalue",
+                    "temporal_shift",
                 ],
             )
             + f"<p class='muted'>{escape(str(result.get('disclaimer', '')))}</p></section>"

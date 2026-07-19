@@ -22,6 +22,7 @@ class InsightContextBuilder:
         "target_conditioned_drift",
         "longitudinal_monitoring",
         "preprocessing_diagnostics",
+        "time_series_diagnostics",
     )
 
     def __init__(self, max_items: int = 30, max_text_length: int = 160):

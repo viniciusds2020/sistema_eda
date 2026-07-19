@@ -76,6 +76,7 @@ class InsightAgent:
         conditioned = context.get("target_conditioned_drift", {})
         longitudinal = context.get("longitudinal_monitoring", {})
         preprocessing = context.get("preprocessing_diagnostics", {})
+        time_series = context.get("time_series_diagnostics", {})
         findings: list[str] = []
         recommendations: list[str] = []
 
@@ -122,6 +123,20 @@ class InsightAgent:
         non_normal = int(prep_summary.get("non_normal_numeric_columns", 0) or 0)
         if non_normal:
             findings.append(f"{non_normal} variáveis numéricas rejeitaram normalidade.")
+        temporal_summary = time_series.get("summary", {})
+        temporal_actions = time_series.get("prioritized_actions", [])
+        if temporal_summary.get("time_columns", 0):
+            findings.append(
+                f"Foram analisados {temporal_summary['time_columns']} eixos temporais e "
+                f"{temporal_summary.get('signals_analyzed', 0)} sinais."
+            )
+        if temporal_summary.get("target_temporal_shifts", 0):
+            findings.append(
+                f"Há {temporal_summary['target_temporal_shifts']} mudanças temporais no target."
+            )
+        recommendations.extend(
+            str(row.get("action", "")) for row in temporal_actions[:3] if row.get("action")
+        )
         if not findings:
             findings.append("Nenhum alerta crítico foi encontrado nos resultados disponíveis.")
             recommendations.append(

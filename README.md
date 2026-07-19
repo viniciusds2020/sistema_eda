@@ -1,7 +1,7 @@
 # SmartEDA
 
 [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/version-1.5.0-blue)](#)
+[![Version](https://img.shields.io/badge/version-1.6.0-blue)](#)
 [![DataFrames](https://img.shields.io/badge/DataFrames-pandas_%7C_Polars_%7C_DuckDB-0A7)](#escala-e-materialização)
 [![License](https://img.shields.io/badge/license-MIT-green)](#licença)
 
@@ -218,6 +218,37 @@ diagnostics["prioritized_actions"]
 ```
 
 Imputadores, encoders, scalers e resampling devem ser ajustados somente dentro dos folds de treino. As recomendações são diagnósticas e não transformam os dados automaticamente.
+
+## Diagnóstico de séries temporais
+
+Quando o dataset possui uma coluna temporal, o `analyze()` também gera `results["time_series_diagnostics"]`:
+
+- frequência inferida, regularidade e intervalo mediano;
+- timestamps inválidos, ausentes e duplicados;
+- gaps relevantes e necessidade de reindexação;
+- tendência monotônica por Spearman;
+- autocorrelação de primeira ordem e sazonal;
+- mudança padronizada entre a primeira e a segunda metade;
+- ADF opcional para estacionariedade;
+- mudança temporal do target para classificação ou regressão;
+- ações contra leakage em lags, rolling features e pré-processamento;
+- recomendação de rolling-origin ou `TimeSeriesSplit`, nunca split aleatório.
+
+```bash
+pip install -e ".[timeseries]"  # inclui statsmodels para ADF
+```
+
+```python
+results = eda.analyze()
+temporal = results["time_series_diagnostics"]
+
+temporal["time_axes"]
+temporal["signals"]
+temporal["target_temporal_analysis"]
+temporal["prioritized_actions"]
+```
+
+Sem o extra `timeseries`, todo o diagnóstico continua funcionando, exceto o teste ADF, que é marcado como indisponível no resultado.
 
 ## Considerações estatísticas
 

@@ -11,6 +11,7 @@ from smarteda.analysis.drift import profile_train_test as build_train_test_profi
 from smarteda.analysis.importance import ImportanceAnalyzer
 from smarteda.analysis.monitoring import longitudinal_frame, monitor_windows
 from smarteda.analysis.preprocessing import preprocessing_diagnostics
+from smarteda.analysis.time_series import time_series_diagnostics
 from smarteda.analysis.numeric import NumericAnalyzer
 from smarteda.analysis.quality import detect_quality_issues
 from smarteda.analysis.statistical_tests import distribution_tests, tests_frame
@@ -198,6 +199,12 @@ class SmartEDA:
             classification_threshold=self.config.classification_threshold,
             alpha=self.config.statistical_alpha,
             random_state=self.config.random_state,
+        )
+        self.results["time_series_diagnostics"] = time_series_diagnostics(
+            self.df,
+            time_columns=self.temporal_cols,
+            target=self.target,
+            classification_threshold=self.config.classification_threshold,
         )
 
         self._analyzed = True

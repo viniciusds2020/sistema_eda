@@ -55,3 +55,38 @@ def test_html_renders_preprocessing_diagnostics(tmp_path: Path):
     content = output.read_text(encoding="utf-8")
     assert "Diagnóstico e sugestões de pré-processamento" in content
     assert "fit_imputation_inside_training_fold" in content
+
+
+def test_html_renders_time_series_diagnostics(tmp_path: Path):
+    output = tmp_path / "temporal.html"
+    results = {
+        "dataset_name": "Demand",
+        "overview": {"n_rows": 30, "n_cols": 2},
+        "time_series_diagnostics": {
+            "summary": {
+                "time_columns": 1,
+                "signals_analyzed": 1,
+                "axes_with_gaps": 1,
+                "duplicate_timestamps": 0,
+                "target_temporal_shifts": 1,
+            },
+            "time_axes": [{"column": "date", "inferred_frequency": "D"}],
+            "signals": [{"time_column": "date", "value_column": "demand"}],
+            "target_temporal_analysis": [
+                {"time_column": "date", "target": "demand", "temporal_shift": True}
+            ],
+            "prioritized_actions": [
+                {
+                    "priority": "high",
+                    "time_column": "date",
+                    "action": "use_rolling_origin_or_time_series_split_never_random_split",
+                    "evidence": "temporal ordering detected",
+                }
+            ],
+        },
+    }
+    frame = pd.DataFrame({"date": pd.date_range("2025-01-01", periods=30), "demand": range(30)})
+    InteractiveHTMLReport().generate(results, frame, str(output))
+    content = output.read_text(encoding="utf-8")
+    assert "Diagnóstico de séries temporais" in content
+    assert "rolling_origin" in content
